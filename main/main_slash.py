@@ -185,30 +185,6 @@ def count_reaction(message: Message, emoji: str):
     return 0
 
 
-'''
-Example of how to read message history + reactions. Might be useful for poll counting?
-@slash.slash(
-    name="count_reactions",
-    description="Count reactions on recent messages.",
-    guild_ids=[834548590399586365], # Bot Testing
-    options=[
-        create_option(
-            name="num_messages",
-            description="Number of recent messages for which to count reactions",
-            required=False,
-            option_type=4,
-        ),
-    ],
-)
-async def count_reactions(ctx: SlashContext, num_messages: int = 1):
-    await ctx.send(f"Counting emojis for last {num_messages} messages", hidden=True)
-    async for message in ctx.channel.history(limit=min(num_messages, 50)):
-        response = "Reaction counts of message - "
-        for react in message.reactions:
-            response += str(react.emoji) + ":" + str(react.count) + " "
-        await ctx.channel.send(response, reference=message)
-'''
-
 # Loads the .env file that resides on the same level as the script.
 load_dotenv()
 
