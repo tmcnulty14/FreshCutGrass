@@ -1,3 +1,4 @@
+import re
 import urllib.request
 from html.parser import HTMLParser
 from os import linesep
@@ -7,8 +8,10 @@ DIVS_TO_PARSE = ['page-title page-header', 'page-content']
 
 
 def get_dnd_spell_text(spell_name: str) -> str:
-    url_format_spell_name = spell_name.lower().replace(" ", "-")
-    wikidot_path = "spell:" + url_format_spell_name
+    formatted_spell_name = spell_name.lower()
+    formatted_spell_name = re.sub("[/ ]+", '-', formatted_spell_name)
+    formatted_spell_name = re.sub("[^A-Za-z-]+", '', formatted_spell_name)
+    wikidot_path = "spell:" + formatted_spell_name
 
     return get_wikidot_text(wikidot_path)
 
