@@ -1,5 +1,6 @@
 import shlex
 
+import discord
 from discord import Message
 from discord_slash import SlashContext
 
@@ -64,7 +65,28 @@ async def multipoll_results(ctx: SlashContext):
     for poll_option in sorted_poll_options:
         summary += "\n" + str(rank) + ". " + str(poll_option)
         rank += 1
-    await ctx.channel.send(summary, reference=question)
+
+    poll_options_by_score = {}
+    for poll_option in poll_options:
+        score = poll_option.score
+        if not score in poll_options_by_score:
+            poll_options_by_score[score] = []
+        poll_options_by_score.get(score).append(poll_option)
+
+    embed = discord.Embed(
+        title="Poll Results",
+        description=question.content[len(MULTIPOLL_QUESTION_PREFIX):],
+        color=discord.Color.gold(),
+    )
+    rank = 1
+    for score in sorted(poll_options_by_score.keys(), reverse=True):
+        tied_poll_options = sorted(poll_options_by_score[score], key=lambda p: p.name)
+        for poll_option in tied_poll_options:
+            embed.add_field(name="\n" + str(rank) + ". " + poll_option.name, value="> " + poll_option.emoji_str(),
+                            inline=False)
+        rank += len(tied_poll_options)
+
+    await ctx.channel.send(embed=embed, reference=question)
 
 
 class MultipollResult:
@@ -79,11 +101,13 @@ class MultipollResult:
         self.score = 3 * self.yes + self.maybe + -1 * self.unlikely + -3 * self.no
 
     def __str__(self):
-        return self.name + f" [Score: {self.score}] " \
-               + YES * self.yes + MAYBE * self.maybe + UNLIKELY * self.unlikely + NO * self.no
+        return self.name + f" [Score: {self.score}] " + self.emoji_str()
 
     def __lt__(self, other):
         return self.score.__lt__(other.score)
+
+    def emoji_str(self):
+        return YES * self.yes + MAYBE * self.maybe + UNLIKELY * self.unlikely + NO * self.no
 
 
 def count_reaction(message: Message, emoji: str):
