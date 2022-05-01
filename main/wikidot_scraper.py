@@ -2,6 +2,7 @@ import re
 import urllib.request
 from html.parser import HTMLParser
 from os import linesep
+from urllib.error import HTTPError
 
 WIKIDOT_URL_PREFIX = "http://dnd5e.wikidot.com/"
 DIVS_TO_PARSE = ['page-title page-header', 'page-content']
@@ -13,7 +14,10 @@ def get_dnd_spell_text(spell_name: str) -> str:
     formatted_spell_name = re.sub("[^A-Za-z-]+", '', formatted_spell_name)
     wikidot_path = "spell:" + formatted_spell_name
 
-    return get_wikidot_text(wikidot_path)
+    try:
+        return get_wikidot_text(wikidot_path)
+    except HTTPError:
+        return f"Error: Could not find a DnD 5e spell named **{spell_name}**."
 
 
 def get_wikidot_text(page_path: str) -> str:

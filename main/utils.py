@@ -18,9 +18,12 @@ def smart_split(string: str, length_limit: int) -> Iterator[str]:
         substring = remaining_string[:length_limit]
         remaining_string = remaining_string[length_limit:]
 
-        (final_substring, extra_remainder) = substring.rsplit(linesep, 1)
-        yield final_substring
-        remaining_string = extra_remainder + remaining_string
+        if linesep in substring:
+            (final_substring, extra_remainder) = substring.rsplit(linesep, 1)
+            yield final_substring
+            remaining_string = extra_remainder + remaining_string
+        else:
+            yield substring
 
 
 async def send_multiple_replies(ctx: SlashContext, messages: Iterable[str], delete_after: float = None) -> [Message]:
