@@ -1,6 +1,8 @@
 import os
 import shlex
 from datetime import datetime
+from os import linesep
+from typing import Iterator, Iterable
 
 import discord
 from discord import Member, Message
@@ -9,6 +11,9 @@ from discord.ext import tasks
 from discord_slash import SlashCommand, SlashContext
 from discord_slash.utils.manage_commands import create_option
 from dotenv import load_dotenv
+from interactions import OptionType
+
+from wikidot.scraper import get_dnd_spell_text
 
 GUILD_IDS = [
     834548590399586365, # Bot Testing
@@ -21,7 +26,7 @@ UNLIKELY = "🥶"
 NO = "🚫"
 MULTIPOLL_EMOJIS = [YES, MAYBE, UNLIKELY, NO]
 MULTIPOLL_QUESTION_PREFIX = "New poll: "
-MULTIPOLL_HELP_MESSAGE =\
+MULTIPOLL_HELP_TEXT =\
     f"Click one reaction on each poll option. {YES} = Yes, {MAYBE} = Maybe, {UNLIKELY} = Likely Not, {NO} = No"
 
 bot = commands.Bot(command_prefix="!")
@@ -50,6 +55,7 @@ async def on_message(message: Message):
 async def update_status():
     now = datetime.now()
     if (now.weekday() == 3 and now.hour >= 21) or (now.weekday() == 4 and now.hour <= 2):
+        # It's Thursday Niiiiight
         print("Setting status to streaming twitch.tv/criticalrole")
         await bot.change_presence(activity=discord.Streaming(name="Critical Role",
                                                              url="https://www.twitch.tv/criticalrole"))
@@ -99,18 +105,14 @@ async def hello(ctx: SlashContext, member: Member = None):
     ],
 )
 async def multipoll(ctx: SlashContext, question: str, options: str):
-    # Send initial response
-    await ctx.send(MULTIPOLL_QUESTION_PREFIX + question)
+    poll_question = MULTIPOLL_QUESTION_PREFIX + question
+    poll_options = shlex.split(options)
 
-    option_list = shlex.split(options)
-
-    # Send the rest of the poll messages. Send these directly to the channel so they don't have a bulky reply link.
-    option_messages = []
-    for option in option_list:
-        option_messages.append(await ctx.channel.send(option))
-    await ctx.channel.send(MULTIPOLL_HELP_MESSAGE)
+    # Send question message, options messages, and help text message
+    sent_messages = await send_multiple_replies(ctx, [poll_question] + poll_options + [MULTIPOLL_HELP_TEXT])
 
     # Add emoji reactions
+    option_messages = sent_messages[1:-1]
     for emoji in MULTIPOLL_EMOJIS:
         for message in option_messages:
             await message.add_reaction(emoji)
@@ -132,7 +134,7 @@ async def multipoll_results(ctx: SlashContext):
             continue
 
         if not found_multipoll:
-            if message.content == MULTIPOLL_HELP_MESSAGE:
+            if message.content == MULTIPOLL_HELP_TEXT:
                 # print("Found multipoll: " + message.content)
                 found_multipoll = True
         else:
@@ -183,6 +185,62 @@ def count_reaction(message: Message, emoji: str):
         if reaction.emoji == emoji:
             return reaction.count - 1  # This bot added all the reactions.
     return 0
+
+
+@slash.slash(
+    name="spell_lookup",
+    description="Look up a DnD 5e spell",
+    guild_ids=GUILD_IDS,
+    options=[
+        create_option(
+            name="spell_name",
+            description="The spell name",
+            required=True,
+            option_type=OptionType.STRING,
+        ),
+    ],
+)
+async def spell_lookup(ctx: SlashContext, spell_name: str):
+    text: str = get_dnd_spell_text(spell_name)
+
+    # Some spells are longer than Discord message limit; split these into multiple messages.
+    messages = list(smart_split(text, 2000))
+
+    await send_multiple_replies(ctx, messages, delete_after=600)
+    # await ctx.send(next(messages), delete_after=600)
+    # for message in messages:
+    #     await ctx.channel.send(message, delete_after=600)
+
+
+def smart_split(string: str, length_limit: int) -> Iterator[str]:
+    """
+    A utility method that splits a string up into substrings no longer than the given limit, but tries to split the
+    strings around line breaks.
+    :param string: The string to split.
+    :param length_limit: The length limit of substrings.
+    :return: A generator of the split substrings.
+    """
+    remaining_string = string
+    while remaining_string != '':
+        substring = remaining_string[:length_limit]
+        remaining_string = remaining_string[length_limit:]
+
+        (final_substring, extra_remainder) = substring.rsplit(linesep, 1)
+        yield final_substring
+        remaining_string = extra_remainder + remaining_string
+
+
+async def send_multiple_replies(ctx: SlashContext, messages: Iterable[str], delete_after: float = None) -> [Message]:
+    iterator: Iterator[str] = iter(messages)
+
+    # Send first message as a direct reply to the slash command.
+    sent_messages = [await ctx.send(next(iterator), delete_after=delete_after)]
+
+    # Send any further messages directly to the channel so the whole response is compactly spaced.
+    for message in iterator:
+        sent_messages.append(await ctx.channel.send(message, delete_after=delete_after))
+
+    return sent_messages
 
 
 # Loads the .env file that resides on the same level as the script.
