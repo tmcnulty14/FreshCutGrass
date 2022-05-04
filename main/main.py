@@ -2,11 +2,12 @@ import os
 from datetime import datetime
 
 import discord
+from dateutil.parser import parser
 from discord import Member, Message
 from discord.ext import commands
 from discord.ext import tasks
 from discord_slash import SlashCommand, SlashContext
-from discord_slash.utils.manage_commands import create_option
+from discord_slash.utils.manage_commands import create_choice, create_option
 from dotenv import load_dotenv
 from interactions import OptionType
 
@@ -64,7 +65,7 @@ async def update_status():
             name="member",
             description="Select a user",
             required=False,
-            option_type=6,
+            option_type=OptionType.USER,
         ),
     ],
 )
@@ -85,13 +86,13 @@ async def hello(ctx: SlashContext, member: Member = None):
             name="question",
             description="The poll question.",
             required=True,
-            option_type=3,
+            option_type=OptionType.STRING,
         ),
         create_option(
             name="options",
             description="The poll options, separated by spaces. Wrap with quotes to include a space in an option.",
             required=True,
-            option_type=3,
+            option_type=OptionType.STRING,
         ),
     ],
 )
@@ -100,12 +101,51 @@ async def multipoll(ctx: SlashContext, question: str, options: str):
 
 
 @slash.slash(
+    name="schedule",
+    description="Create a scheduling poll.",
+    guild_ids=GUILD_IDS,
+    options=[
+        create_option(
+            name="question",
+            description="The poll question.",
+            required=True,
+            option_type=OptionType.STRING,
+        ),
+        create_option(
+            name="start_date",
+            description="The start date of the scheduling range. Defaults to tomorrow.",
+            required=False,
+            option_type=OptionType.STRING,
+        ),
+        create_option(
+            name="end_date",
+            description="The end date of the scheduling range. Defaults to one week after the start date.",
+            required=False,
+            option_type=OptionType.STRING,
+        ),
+    ],
+)
+async def schedule(ctx: SlashContext, question: str, start_date: str = None, end_date: str = None):
+    await polls.scheduling_multipoll(ctx, question, start_date, end_date)
+
+
+@slash.slash(
     name="multipoll_results",
     description="Ranks the results of the last multipoll.",
     guild_ids=GUILD_IDS,
+    options=[
+        create_option(
+            name="ranking_mode",
+            description="The mode to use for ranking results",
+            option_type=OptionType.STRING,
+            required=False,
+            choices=list(map(lambda ranking_mode_name: create_choice(name=ranking_mode_name, value=ranking_mode_name),
+                             polls.ResultRankingMode.__members__.keys())),
+        ),
+    ],
 )
-async def multipoll_results(ctx: SlashContext):
-    await polls.multipoll_results(ctx)
+async def multipoll_results(ctx: SlashContext, ranking_mode: str = polls.ResultRankingMode.SCORE.name):
+    await polls.multipoll_results(ctx, ranking_mode)
 
 
 @slash.slash(
