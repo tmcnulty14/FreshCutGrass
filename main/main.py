@@ -13,7 +13,7 @@ from interactions import OptionType
 
 import polls
 import utils
-from wikidot_scraper import get_dnd_spell_text
+from wikidot_scraper import get_dnd_spell_text, get_dnd_spell_card
 
 GUILD_IDS = [
     834548590399586365, # Bot Testing
@@ -162,12 +162,9 @@ async def multipoll_results(ctx: SlashContext, ranking_mode: str = polls.ResultR
     ],
 )
 async def spell_lookup(ctx: SlashContext, spell_name: str):
-    text: str = get_dnd_spell_text(spell_name)
+    card: discord.Embed = get_dnd_spell_card(spell_name)
 
-    # Some spells are longer than Discord message limit; split these into multiple messages.
-    messages = list(utils.smart_split(text, 2000))
-
-    await utils.send_multiple_replies(ctx, messages, delete_after=600)
+    await ctx.send(embed=card, delete_after=600)
 
 
 # Loads the .env file that resides on the same level as the script.
