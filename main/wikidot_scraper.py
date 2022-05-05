@@ -15,25 +15,34 @@ DIVS_TO_PARSE = ['page-title page-header', 'page-content']
 
 
 def get_dnd_spell_text(spell_name: str) -> str:
-    wikidot_path = get_wikidot_path(spell_name)
+    wikidot_path = get_wikidot_path("spell", spell_name)
 
     try:
-        return get_wikidot_text(wikidot_path)
+        return get_wikidot_page_text(wikidot_path)
     except HTTPError:
         return f"Error: Could not find a DnD 5e spell named **{spell_name}**."
 
 
-def get_wikidot_url(spell_name: str) -> str:
-    return WIKIDOT_URL_PREFIX + get_wikidot_path(spell_name)
+def get_wikidot_text(category: str, name: str) -> str:
+    wikidot_path = get_wikidot_path(category, name)
+
+    try:
+        return get_wikidot_page_text(wikidot_path)
+    except HTTPError:
+        return f"Error: Could not find **{name}** in category **{category}**."
 
 
-def get_wikidot_path(spell_name: str) -> str:
-    formatted_spell_name = spell_name.lower()
-    formatted_spell_name = re.sub("[/ ]+", '-', formatted_spell_name)
-    formatted_spell_name = re.sub("[^A-Za-z-]+", '', formatted_spell_name)
-    return "spell:" + formatted_spell_name
+def get_wikidot_path(category: str, name: str) -> str:
+    return wikidot_url_format(category) + ":" + wikidot_url_format(name)
 
-def get_wikidot_text(page_path: str) -> str:
+
+def wikidot_url_format(url_component: str) -> str:
+    formatted_url_component = url_component.lower()
+    formatted_url_component = re.sub("[/ ]+", '-', formatted_url_component)
+    return re.sub("[^A-Za-z-]+", '', formatted_url_component)
+
+
+def get_wikidot_page_text(page_path: str) -> str:
     html = get_wikidot_html(page_path)
     return parse_wikidot_html(html)
 
@@ -98,7 +107,7 @@ class WikidotHtmlParser(HTMLParser):
             if tag == 'span':
                 self.output += '__**'
             if tag == 'th':
-                self.output += '__'
+                self.output += '__ '
             if tag == 'li':
                 self.output += '• '
             if tag == 'a':
@@ -134,37 +143,13 @@ class WikidotHtmlParser(HTMLParser):
     def error(self, message):
         print(f"Parsing error: {message}")
 
-class DndSpell:
+
+class DndWikidotCard:
     # This is the Braille 'blank' character. It's a hacky way to satisfy the requirement that Field titles aren't empty.
     EMPTY_FIELD_TITLE_CHARACTER = '⠀'
-    # Get School of Magic image URLs from DnDBeyond.
-    SCHOOL_TO_IMAGE_MAP = {
-        'abjuration': 'https://media-waterdeep.cursecdn.com/attachments/2/707/abjuration.png',
-        'conjuration': 'https://media-waterdeep.cursecdn.com/attachments/2/708/conjuration.png',
-        'divination': 'https://media-waterdeep.cursecdn.com/attachments/2/709/divination.png',
-        'enchantment': 'https://media-waterdeep.cursecdn.com/attachments/2/702/enchantment.png',
-        'evocation': 'https://media-waterdeep.cursecdn.com/attachments/2/703/evocation.png',
-        'illusion': 'https://media-waterdeep.cursecdn.com/attachments/2/704/illusion.png',
-        'necromancy': 'https://media-waterdeep.cursecdn.com/attachments/2/720/necromancy.png',
-        'transmutation': 'https://media-waterdeep.cursecdn.com/attachments/2/722/transmutation.png',
-    }
 
-    def __init__(self, spell_name: str):
-        self.spell_name = spell_name
-        spell_text = get_dnd_spell_text(spell_name)
-        self.lines = spell_text.split(linesep)
-
-        self.name = self.lines[0]
-        self.source = self.find_line("Source: ")
-        self.cast_time = self.find_line("**Casting Time:")
-        self.range = self.find_line("**Range:** ")
-        self.components = self.find_line("**Components:")
-        self.duration = self.find_line("**Duration:")
-        self.spell_lists = self.find_line("***Spell Lists.")
-
-        self.classification = self.get_lines_between(self.source, self.cast_time)[1]
-        self.description_lines = self.get_lines_between(self.duration, self.spell_lists)[1:-1]
-        self.extra_lines = self.get_lines_after(self.spell_lists)
+    def __init__(self, lines: [str]):
+        self.lines = lines
 
     def find_line(self, line_prefix: str) -> Optional[str]:
         return next(l for l in self.lines if l.startswith(line_prefix))
@@ -179,6 +164,50 @@ class DndSpell:
         previous_line_index = self.lines.index(previous_line_exclusive)
 
         return self.lines[previous_line_index+1:]
+
+    @staticmethod
+    def group_lines_by_max_character_count(lines: [str]) -> [str]:
+        blob = linesep.join(lines)
+        split_groups = list(utils.smart_split(blob, 1024))
+        return split_groups
+
+    @staticmethod
+    def add_long_text_as_multiple_fields(card: Embed, field_name: str, text_lines: [str]):
+        text_groups = DndWikidotCard.group_lines_by_max_character_count(text_lines)
+        card.add_field(name=field_name, value=text_groups[0], inline=False)
+        for text_group in text_groups[1:]:
+            card.add_field(name=DndSpell.EMPTY_FIELD_TITLE_CHARACTER, value=text_group, inline=False)
+
+
+class DndSpell(DndWikidotCard):
+    # Get School of Magic image URLs from DnDBeyond.
+    SCHOOL_TO_IMAGE_MAP = {
+        'abjuration': 'https://media-waterdeep.cursecdn.com/attachments/2/707/abjuration.png',
+        'conjuration': 'https://media-waterdeep.cursecdn.com/attachments/2/708/conjuration.png',
+        'divination': 'https://media-waterdeep.cursecdn.com/attachments/2/709/divination.png',
+        'enchantment': 'https://media-waterdeep.cursecdn.com/attachments/2/702/enchantment.png',
+        'evocation': 'https://media-waterdeep.cursecdn.com/attachments/2/703/evocation.png',
+        'illusion': 'https://media-waterdeep.cursecdn.com/attachments/2/704/illusion.png',
+        'necromancy': 'https://media-waterdeep.cursecdn.com/attachments/2/720/necromancy.png',
+        'transmutation': 'https://media-waterdeep.cursecdn.com/attachments/2/722/transmutation.png',
+    }
+
+    def __init__(self, spell_name: str):
+        spell_text = get_wikidot_text("Spell", spell_name)
+        self.lines = spell_text.split(linesep)
+        DndWikidotCard.__init__(self, lines=self.lines)
+
+        self.name = self.lines[0]
+        self.source = self.find_line("Source: ")
+        self.cast_time = self.find_line("**Casting Time:")
+        self.range = self.find_line("**Range:** ")
+        self.components = self.find_line("**Components:")
+        self.duration = self.find_line("**Duration:")
+        self.spell_lists = self.find_line("***Spell Lists.")
+
+        self.classification = self.get_lines_between(self.source, self.cast_time)[1]
+        self.description_lines = self.get_lines_between(self.duration, self.spell_lists)[1:-1]
+        self.extra_lines = self.get_lines_after(self.spell_lists)
 
     def get_school_image_url(self):
         school = next(school for school in DndSpell.SCHOOL_TO_IMAGE_MAP.keys() if school in self.classification.lower())
@@ -197,29 +226,78 @@ class DndSpell:
         card.add_field(name="Duration", value=self.duration[14:], inline=True)
         card.add_field(name="Components", value=self.components[16:], inline=True)
 
-        description_groups = self.group_lines_by_max_character_count(self.description_lines)
-        card.add_field(name="Description", value=description_groups[0], inline=False)
-        for description_group in description_groups[1:]:
-            card.add_field(name=DndSpell.EMPTY_FIELD_TITLE_CHARACTER, value=description_group, inline=False)
+        self.add_long_text_as_multiple_fields(card, "Description", self.description_lines)
 
         card.add_field(name="Spell Lists", value=self.spell_lists[19:], inline=False)
 
         if len(self.extra_lines) > 1:
-            extra_groups = self.group_lines_by_max_character_count(self.extra_lines[1:])
-            card.add_field(name=self.extra_lines[0], value=extra_groups[0], inline=False)
-            for extra_group in extra_groups[1:]:
-                card.add_field(name=DndSpell.EMPTY_FIELD_TITLE_CHARACTER, value=extra_group, inline=False)
+            self.add_long_text_as_multiple_fields(card, self.extra_lines[0], self.extra_lines[1:])
 
         card.set_footer(text=self.source, icon_url=self.get_school_image_url())
 
         return card
 
-    @staticmethod
-    def group_lines_by_max_character_count(lines: [str]) -> [str]:
-        blob = linesep.join(lines)
-        split_groups = list(utils.smart_split(blob, 1024))
-        return split_groups
-
 
 def get_dnd_spell_card(spell_name: str) -> Embed:
     return DndSpell(spell_name).make_card()
+
+
+class DndItem(DndWikidotCard):
+    # Get Magic Item Type image URLs from DnDBeyond.
+    ITEM_TYPE_TO_IMAGE_MAP = {
+        'armor': 'https://www.dndbeyond.com/content/1-0-1989-0/skins/waterdeep/images/icons/item_types/armor.jpg',
+        'potion': 'https://www.dndbeyond.com/content/1-0-1989-0/skins/waterdeep/images/icons/item_types/potion.jpg',
+        'ring': 'https://www.dndbeyond.com/content/1-0-1989-0/skins/waterdeep/images/icons/item_types/ring.jpg',
+        'rod': 'https://www.dndbeyond.com/content/1-0-1989-0/skins/waterdeep/images/icons/item_types/rod.jpg',
+        'scroll': 'https://www.dndbeyond.com/content/1-0-1989-0/skins/waterdeep/images/icons/item_types/scroll.jpg',
+        'staff': 'https://www.dndbeyond.com/content/1-0-1989-0/skins/waterdeep/images/icons/item_types/staff.jpg',
+        'wand': 'https://www.dndbeyond.com/content/1-0-1989-0/skins/waterdeep/images/icons/item_types/wand.jpg',
+        'weapon': 'https://www.dndbeyond.com/content/1-0-1989-0/skins/waterdeep/images/icons/item_types/weapon.jpg',
+        'wondrous item':
+            'https://www.dndbeyond.com/content/1-0-1989-0/skins/waterdeep/images/icons/item_types/wondrousitem.jpg',
+    }
+
+    def __init__(self, item_name: str):
+        item_text = get_wikidot_text("Wondrous Items", item_name)
+        self.lines = item_text.split(linesep)
+        DndWikidotCard.__init__(self, lines=self.lines)
+
+        self.name = self.lines[0]
+        self.source = self.find_line("Source: ")
+
+        further_lines = self.get_lines_after(self.source)
+        self.metadata_line = further_lines[1]
+        self.description_lines = further_lines[2:]
+
+        self.item_type, remaining_metadata = self.metadata_line.strip('*').split(',', 1)
+        if '(requires attunement' in remaining_metadata:
+            attunement_start = remaining_metadata.index('(requires attunement')
+            self.rarity = remaining_metadata[:attunement_start - 1]
+            self.attunement = remaining_metadata[attunement_start + 1:].split(')', 1)[0]
+        else:
+            self.rarity = remaining_metadata
+            self.attunement = None
+
+    def get_item_type_image_url(self):
+        return DndItem.ITEM_TYPE_TO_IMAGE_MAP[self.item_type.lower()]
+
+    def make_card(self) -> Embed:
+        card = Embed(
+            title=self.name,
+            color=discord.Color.gold(),
+        )
+
+        card.add_field(name="Item Type", value=self.item_type, inline=True)
+        card.add_field(name="Rarity", value=self.rarity, inline=True)
+        if self.attunement:
+            card.add_field(name="Attunement", value=self.attunement, inline=True)
+
+        self.add_long_text_as_multiple_fields(card, "Description", self.description_lines)
+
+        card.set_footer(text=self.source, icon_url=self.get_item_type_image_url())
+
+        return card
+
+
+def get_dnd_item_card(item_name: str) -> Embed:
+    return DndItem(item_name).make_card()

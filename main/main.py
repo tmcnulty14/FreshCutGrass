@@ -2,7 +2,6 @@ import os
 from datetime import datetime
 
 import discord
-from dateutil.parser import parser
 from discord import Member, Message
 from discord.ext import commands
 from discord.ext import tasks
@@ -12,8 +11,7 @@ from dotenv import load_dotenv
 from interactions import OptionType
 
 import polls
-import utils
-from wikidot_scraper import get_dnd_spell_text, get_dnd_spell_card
+from wikidot_scraper import get_dnd_spell_card, get_dnd_item_card
 
 GUILD_IDS = [
     834548590399586365, # Bot Testing
@@ -163,6 +161,25 @@ async def multipoll_results(ctx: SlashContext, ranking_mode: str = polls.ResultR
 )
 async def spell_lookup(ctx: SlashContext, spell_name: str):
     card: discord.Embed = get_dnd_spell_card(spell_name)
+
+    await ctx.send(embed=card, delete_after=600)
+
+
+@slash.slash(
+    name="item_lookup",
+    description="Look up a DnD 5e magic item",
+    guild_ids=GUILD_IDS,
+    options=[
+        create_option(
+            name="item_name",
+            description="The item name",
+            required=True,
+            option_type=OptionType.STRING,
+        ),
+    ],
+)
+async def item_lookup(ctx: SlashContext, item_name: str):
+    card: discord.Embed = get_dnd_item_card(item_name)
 
     await ctx.send(embed=card, delete_after=600)
 
