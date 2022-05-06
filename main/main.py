@@ -57,7 +57,7 @@ async def update_status():
 @slash.slash(
     name="hello",
     description="Say hello",
-    guild_ids=GUILD_IDS,
+    # Global command; allows this to be used in bot DMs.
     options=[
         create_option(
             name="member",
@@ -149,7 +149,7 @@ async def multipoll_results(ctx: SlashContext, ranking_mode: str = polls.ResultR
 @slash.slash(
     name="spell_lookup",
     description="Look up a DnD 5e spell",
-    guild_ids=GUILD_IDS,
+    # Global command; allows this to be used in bot DMs.
     options=[
         create_option(
             name="spell_name",
@@ -168,7 +168,7 @@ async def spell_lookup(ctx: SlashContext, spell_name: str):
 @slash.slash(
     name="item_lookup",
     description="Look up a DnD 5e magic item",
-    guild_ids=GUILD_IDS,
+    # Global command; allows this to be used in bot DMs.
     options=[
         create_option(
             name="item_name",
