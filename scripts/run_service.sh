@@ -1,3 +1,3 @@
 #!/bin/bash
-# python3 ../main/main.py
 echo "Running Fresh Cut Grass"
+nohup python3 ../main/main.py &
