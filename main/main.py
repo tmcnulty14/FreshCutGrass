@@ -5,10 +5,9 @@ import discord
 from discord import Member, Message
 from discord.ext import commands
 from discord.ext import tasks
-from discord_slash import SlashCommand, SlashContext
+from discord_slash import SlashCommand, SlashContext, SlashCommandOptionType
 from discord_slash.utils.manage_commands import create_choice, create_option
 from dotenv import load_dotenv
-from interactions import OptionType
 
 import polls
 from wikidot_scraper import get_dnd_spell_card, get_dnd_item_card
@@ -63,7 +62,7 @@ async def update_status():
             name="member",
             description="Select a user",
             required=False,
-            option_type=OptionType.USER,
+            option_type=SlashCommandOptionType.USER,
         ),
     ],
 )
@@ -84,13 +83,13 @@ async def hello(ctx: SlashContext, member: Member = None):
             name="question",
             description="The poll question.",
             required=True,
-            option_type=OptionType.STRING,
+            option_type=SlashCommandOptionType.STRING,
         ),
         create_option(
             name="options",
             description="The poll options, separated by spaces. Wrap with quotes to include a space in an option.",
             required=True,
-            option_type=OptionType.STRING,
+            option_type=SlashCommandOptionType.STRING,
         ),
     ],
 )
@@ -107,19 +106,19 @@ async def multipoll(ctx: SlashContext, question: str, options: str):
             name="question",
             description="The poll question.",
             required=True,
-            option_type=OptionType.STRING,
+            option_type=SlashCommandOptionType.STRING,
         ),
         create_option(
             name="start_date",
             description="The start date of the scheduling range. Defaults to tomorrow.",
             required=False,
-            option_type=OptionType.STRING,
+            option_type=SlashCommandOptionType.STRING,
         ),
         create_option(
             name="end_date",
             description="The end date of the scheduling range. Defaults to one week after the start date.",
             required=False,
-            option_type=OptionType.STRING,
+            option_type=SlashCommandOptionType.STRING,
         ),
     ],
 )
@@ -135,7 +134,7 @@ async def schedule(ctx: SlashContext, question: str, start_date: str = None, end
         create_option(
             name="ranking_mode",
             description="The mode to use for ranking results",
-            option_type=OptionType.STRING,
+            option_type=SlashCommandOptionType.STRING,
             required=False,
             choices=list(map(lambda ranking_mode_name: create_choice(name=ranking_mode_name, value=ranking_mode_name),
                              polls.ResultRankingMode.__members__.keys())),
@@ -155,7 +154,7 @@ async def multipoll_results(ctx: SlashContext, ranking_mode: str = polls.ResultR
             name="spell_name",
             description="The spell name",
             required=True,
-            option_type=OptionType.STRING,
+            option_type=SlashCommandOptionType.STRING,
         ),
     ],
 )
@@ -174,7 +173,7 @@ async def spell_lookup(ctx: SlashContext, spell_name: str):
             name="item_name",
             description="The item name",
             required=True,
-            option_type=OptionType.STRING,
+            option_type=SlashCommandOptionType.STRING,
         ),
     ],
 )
