@@ -81,7 +81,7 @@ def get_next_monday() -> date:
     return today + timedelta(days=days_until_monday)
 
 
-async def multipoll_results(ctx: SlashContext, ranking_mode: str):
+async def multipoll_results(ctx: SlashContext, ranking_mode: str, result_limit: int):
     await ctx.send("Fetching multipoll results...", hidden=True)
 
     ranking_mode_enum = ResultRankingMode[ranking_mode]
@@ -103,7 +103,10 @@ async def multipoll_results(ctx: SlashContext, ranking_mode: str):
         for poll_option in tied_poll_options:
             embed.add_field(name="\n" + str(rank) + ". " + poll_option.name, value="> " + poll_option.emoji_str(),
                             inline=False)
+
         rank += len(tied_poll_options)
+        if rank > result_limit:
+            break
 
     embed.set_footer(text=f"Ranking mode: {ranking_mode}")
 

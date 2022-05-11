@@ -139,10 +139,17 @@ async def schedule(ctx: SlashContext, question: str, start_date: str = None, end
             choices=list(map(lambda ranking_mode_name: create_choice(name=ranking_mode_name, value=ranking_mode_name),
                              polls.ResultRankingMode.__members__.keys())),
         ),
+        create_option(
+            name="result_limit",
+            description="The maximum number of results to include in the ranking",
+            option_type=SlashCommandOptionType.INTEGER,
+            required=False,
+        ),
     ],
 )
-async def multipoll_results(ctx: SlashContext, ranking_mode: str = polls.ResultRankingMode.SCORE.name):
-    await polls.multipoll_results(ctx, ranking_mode)
+async def multipoll_results(ctx: SlashContext, ranking_mode: str = polls.ResultRankingMode.SCORE.name,
+                            result_limit: int = 3):
+    await polls.multipoll_results(ctx, ranking_mode, result_limit)
 
 
 @slash.slash(
