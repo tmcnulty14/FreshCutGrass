@@ -5,7 +5,7 @@ from typing import Optional
 
 import discord
 from dateutil.parser import parser
-from discord import Message
+from discord import Message, Role
 from discord_slash import SlashContext
 
 import utils
@@ -20,23 +20,26 @@ MULTIPOLL_HELP_TEXT = \
     f"Click one reaction on each poll option. {YES} = Yes, {MAYBE} = Maybe, {UNLIKELY} = Likely Not, {NO} = No"
 
 
-async def multipoll(ctx: SlashContext, question: str, options: str):
+async def multipoll(ctx: SlashContext, question: str, options: str, mention_role: Role = None):
     poll_options = shlex.split(options)
 
-    await post_multipoll(ctx, question, poll_options)
+    await post_multipoll(ctx, question, poll_options, mention_role)
 
 
-async def scheduling_multipoll(ctx: SlashContext, question: str, start_date_str: str = None, end_date_str: str = None):
+async def scheduling_multipoll(ctx: SlashContext, question: str, start_date_str: str = None, end_date_str: str = None,
+                               mention_role: Role = None):
     dates = get_scheduling_dates(end_date_str, start_date_str)
 
     # Add multiple poll options for weekend dates
     poll_options = [option for sublist in map(lambda d: get_options_for_date(d), dates) for option in sublist]
 
-    await post_multipoll(ctx, question, poll_options)
+    await post_multipoll(ctx, question, poll_options, mention_role)
 
 
-async def post_multipoll(ctx: SlashContext, question: str, poll_options: [str]):
+async def post_multipoll(ctx: SlashContext, question: str, poll_options: [str], mention_role: Role = None):
     poll_question = MULTIPOLL_QUESTION_PREFIX + question
+    if mention_role is not None:
+        poll_question += " " + mention_role.mention
 
     # Send question message, options messages, and help text message
     sent_messages = await utils.send_multiple_replies(ctx, [poll_question] + poll_options + [MULTIPOLL_HELP_TEXT])

@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 
 import discord
-from discord import Member, Message
+from discord import Member, Message, Role
 from discord.ext import commands
 from discord.ext import tasks
 from discord_slash import SlashCommand, SlashContext, SlashCommandOptionType
@@ -91,10 +91,16 @@ async def hello(ctx: SlashContext, member: Member = None):
             required=True,
             option_type=SlashCommandOptionType.STRING,
         ),
+        create_option(
+            name="mention_role",
+            description="A role to mention.",
+            required=False,
+            option_type=SlashCommandOptionType.ROLE,
+        ),
     ],
 )
-async def multipoll(ctx: SlashContext, question: str, options: str):
-    await polls.multipoll(ctx, question, options)
+async def multipoll(ctx: SlashContext, question: str, options: str, mention_role: Role = None):
+    await polls.multipoll(ctx, question, options, mention_role)
 
 
 @slash.slash(
@@ -120,10 +126,17 @@ async def multipoll(ctx: SlashContext, question: str, options: str):
             required=False,
             option_type=SlashCommandOptionType.STRING,
         ),
+        create_option(
+            name="mention_role",
+            description="A role to mention.",
+            required=False,
+            option_type=SlashCommandOptionType.ROLE,
+        ),
     ],
 )
-async def schedule(ctx: SlashContext, question: str, start_date: str = None, end_date: str = None):
-    await polls.scheduling_multipoll(ctx, question, start_date, end_date)
+async def schedule(ctx: SlashContext, question: str, start_date: str = None, end_date: str = None,
+                   mention_role: Role = None):
+    await polls.scheduling_multipoll(ctx, question, start_date, end_date, mention_role)
 
 
 @slash.slash(
