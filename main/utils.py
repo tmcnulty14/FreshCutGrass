@@ -2,7 +2,7 @@ from os import linesep
 from typing import Iterator, Iterable
 
 from discord import Message
-from discord_slash import SlashContext
+from interactions import CommandContext
 
 
 def smart_split(string: str, length_limit: int) -> Iterator[str]:
@@ -31,14 +31,16 @@ def smart_split(string: str, length_limit: int) -> Iterator[str]:
     yield remaining_string
 
 
-async def send_multiple_replies(ctx: SlashContext, messages: Iterable[str], delete_after: float = None) -> [Message]:
+async def send_multiple_replies(ctx: CommandContext, messages: Iterable[str]) -> [Message]:
     iterator: Iterator[str] = iter(messages)
 
     # Send first message as a direct reply to the slash command.
-    sent_messages = [await ctx.send(next(iterator), delete_after=delete_after)]
+    sent_messages = [await ctx.send(next(iterator))]
+    thread = await ctx.channel.create_thread(name="Test Thread",
+                                             message_id=int(sent_messages[0].id), auto_archive_duration=4320)
 
-    # Send any further messages directly to the channel so the whole response is compactly spaced.
+    # Send all further messages to the thread.
     for message in iterator:
-        sent_messages.append(await ctx.channel.send(message, delete_after=delete_after))
+        sent_messages.append(await thread.send(message))
 
     return sent_messages

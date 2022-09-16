@@ -1,12 +1,13 @@
 import shlex
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 from enum import Enum
 from typing import Optional
 
-import discord
 from dateutil.parser import parser
-from discord import Message, Role
-from discord_slash import SlashContext
+from discord import Role
+from interactions import CommandContext
+from interactions.api.models.message import Message
+from interactions.api.models.user import User
 
 import utils
 
@@ -19,14 +20,19 @@ MULTIPOLL_QUESTION_PREFIX = "New poll: "
 MULTIPOLL_HELP_TEXT = \
     f"Click one reaction on each poll option. {YES} = Yes, {MAYBE} = Maybe, {UNLIKELY} = Likely Not, {NO} = No"
 
+FIRST = "🥇"
+SECOND = "🥈"
+THIRD = "🥉"
+MEDALS = [FIRST, SECOND, THIRD]
 
-async def multipoll(ctx: SlashContext, question: str, options: str, mention_role: Role = None):
+
+async def multipoll(ctx: CommandContext, question: str, options: str, mention_role: Role = None):
     poll_options = shlex.split(options)
 
     await post_multipoll(ctx, question, poll_options, mention_role)
 
 
-async def scheduling_multipoll(ctx: SlashContext, question: str, start_date_str: str = None, end_date_str: str = None,
+async def scheduling_multipoll(ctx: CommandContext, question: str, start_date_str: str = None, end_date_str: str = None,
                                mention_role: Role = None):
     dates = get_scheduling_dates(end_date_str, start_date_str)
 
@@ -36,7 +42,7 @@ async def scheduling_multipoll(ctx: SlashContext, question: str, start_date_str:
     await post_multipoll(ctx, question, poll_options, mention_role)
 
 
-async def post_multipoll(ctx: SlashContext, question: str, poll_options: [str], mention_role: Role = None):
+async def post_multipoll(ctx: CommandContext, question: str, poll_options: [str], mention_role: Role = None):
     poll_question = MULTIPOLL_QUESTION_PREFIX + question
     if mention_role is not None:
         poll_question += " " + mention_role.mention
@@ -48,7 +54,7 @@ async def post_multipoll(ctx: SlashContext, question: str, poll_options: [str], 
     option_messages = sent_messages[1:-1]
     for emoji in MULTIPOLL_EMOJIS:
         for message in option_messages:
-            await message.add_reaction(emoji)
+            await message.create_reaction(emoji)
 
 
 def get_scheduling_dates(end_date_str: str = None, start_date_str: str = None) -> [date]:
@@ -84,36 +90,36 @@ def get_next_monday() -> date:
     return today + timedelta(days=days_until_monday)
 
 
-async def multipoll_results(ctx: SlashContext, ranking_mode: str, result_limit: int):
-    await ctx.send("Fetching multipoll results...", hidden=True)
-
+async def multipoll_results(ctx: CommandContext, ranking_mode: str):
     ranking_mode_enum = ResultRankingMode[ranking_mode]
 
     last_multipoll = await find_multipoll(ctx, ranking_mode_enum)
     if not last_multipoll:
+        await ctx.send("Could not find multipoll to rank.", ephemeral=True)
         return
+    await ctx.send("Ranking multipoll results.", ephemeral=True)
 
+    # Clear previous medal reactions if present.
+    for poll_option in last_multipoll.poll_options:
+        message = poll_option.message
+        for reaction in message.reactions:
+            if reaction.me and reaction.emoji.name in MEDALS:
+                await message.remove_own_reaction_of(reaction.emoji)
+
+    # Add updated medal reactions
     poll_options_by_score = last_multipoll.poll_options_by_score()
-
-    embed = discord.Embed(
-        title="Poll Results",
-        description=last_multipoll.question(),
-        color=discord.Color.gold(),
-    )
     rank = 1
     for score in sorted(poll_options_by_score.keys(), reverse=True):
-        tied_poll_options = sorted(poll_options_by_score[score], key=lambda p: p.name)
+        tied_poll_options = poll_options_by_score[score]
+
+        medal_emoji = MEDALS[rank - 1]
+
         for poll_option in tied_poll_options:
-            embed.add_field(name="\n" + str(rank) + ". " + poll_option.name, value="> " + poll_option.emoji_str(),
-                            inline=False)
+            await poll_option.message.create_reaction(medal_emoji)
 
         rank += len(tied_poll_options)
-        if rank > result_limit:
+        if rank > len(MEDALS):
             break
-
-    embed.set_footer(text=f"Ranking mode: {ranking_mode}")
-
-    await ctx.channel.send(embed=embed, reference=last_multipoll.question_message)
 
 
 class ResultRankingMode(Enum):
@@ -125,6 +131,7 @@ class ResultRankingMode(Enum):
 class MultipollResult:
     def __init__(self, poll_option: Message, ranking_mode: ResultRankingMode):
         self.name = poll_option.content
+        self.message = poll_option
         self.ranking_mode = ranking_mode
 
         self.yes = self.count_reaction(poll_option, YES)
@@ -149,20 +156,24 @@ class MultipollResult:
     @staticmethod
     def count_reaction(message: Message, emoji: str):
         for reaction in message.reactions:
-            if reaction.emoji == emoji:
+            if reaction.emoji.name == emoji:
                 return reaction.count - 1  # This bot added all the reactions.
         return 0
 
 
 class Multipoll:
-    def __init__(self, question_message: Message, poll_option_messages: [Message], ranking_mode: ResultRankingMode):
+    def __init__(self, question_message: Message, poll_option_messages: [Message],
+                 ranking_mode: ResultRankingMode = ResultRankingMode.SCORE):
         self.question_message = question_message
-        self.poll_options = map(lambda msg: MultipollResult(msg, ranking_mode), poll_option_messages)
+        self.poll_options = list(map(lambda msg: MultipollResult(msg, ranking_mode), poll_option_messages))
 
     def question(self) -> str:
-        return self.question_message.content[len(MULTIPOLL_QUESTION_PREFIX):]
+        if self.question_message is not None:
+            return self.question_message.content[len(MULTIPOLL_QUESTION_PREFIX):]
+        else:
+            return "Unknown question?"
 
-    def poll_options_by_score(self) -> {}:
+    def poll_options_by_score(self) -> {int: [MultipollResult]}:
         poll_options_by_score = {}
 
         for poll_option in self.poll_options:
@@ -174,12 +185,15 @@ class Multipoll:
         return poll_options_by_score
 
 
-async def find_multipoll(ctx: SlashContext, ranking_mode: ResultRankingMode) -> Optional[Multipoll]:
+async def find_multipoll(ctx: CommandContext, ranking_mode: ResultRankingMode = ResultRankingMode.SCORE)\
+        -> Optional[Multipoll]:
     poll_options = []
     found_multipoll = False
     question = None
-    async for message in ctx.channel.history(limit=200):
-        if message.author != ctx.me:
+    bot_user = User(**(await ctx.client.get_self()))
+    channel = await ctx.get_channel()
+    for message in await channel.get_history(limit=200):
+        if message.author != bot_user:
             continue
 
         if not found_multipoll:
@@ -191,13 +205,13 @@ async def find_multipoll(ctx: SlashContext, ranking_mode: ResultRankingMode) -> 
                 question = message
                 # print("Found multipoll question: " + message.content)
                 break
-            else:
+            elif any(reaction.me for reaction in (message.reactions or [])):
                 # print("Found multipoll option: " + message.content)
                 poll_options.append(message)
 
     # Verify the question was found.
-    if not found_multipoll or not question:
-        await ctx.channel.send("Could not find recent multipoll.", delete_after=5)
+    if not found_multipoll:
+        await ctx.send("Could not find recent multipoll.", ephemeral=True)
         return None
 
     return Multipoll(question_message=question, poll_option_messages=poll_options, ranking_mode=ranking_mode)

@@ -3,23 +3,28 @@ from datetime import datetime
 
 import discord
 from discord import Member, Message, Role
-from discord.ext import commands
 from discord.ext import tasks
-from discord_slash import SlashCommand, SlashContext, SlashCommandOptionType
-from discord_slash.utils.manage_commands import create_choice, create_option
 from dotenv import load_dotenv
+from interactions import ClientPresence, OptionType, CommandContext, Option, Choice, Client, StatusType, \
+    PresenceActivity, PresenceActivityType
 
 import polls
 from wikidot_scraper import get_dnd_spell_card, get_dnd_item_card
 
 GUILD_IDS = [
-    # 834548590399586365, # Bot Testing
-    933438152826306640, # D&D: Wildemount
-    771115921443651615, # Edmung Us
+    # 834548590399586365,  # Bot Testing
+    933438152826306640,  # D&D: Wildemount
+    771115921443651615,  # Edmung Us
 ]
 
-bot = commands.Bot(command_prefix="!")
-slash = SlashCommand(bot, sync_commands=True)
+# Loads the .env file that resides on the same level as the script.
+load_dotenv()
+
+# Grab the API token from the .env file. This file is NOT included in the git repository, as it contains credentials.
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+
+# Creates the bot with the specified token.
+bot = Client(token=DISCORD_TOKEN)
 
 
 @bot.event
@@ -29,7 +34,7 @@ async def on_ready():
     for guild in bot.guilds:
         print(f"- {guild.name} (id: {guild.id})")
 
-    await update_status()
+    # await update_status()
 
 
 @bot.event
@@ -37,36 +42,50 @@ async def on_message(message: Message):
     # Lemon react to mentions of Myron Lermontov.
     lemon_triggers = ["lermontov", "lairmontov"]
     if any(trigger in message.content.lower() for trigger in lemon_triggers):
-        await message.add_reaction("🍋") # Lemon emoji
+        await message.add_reaction("🍋")  # Lemon emoji
 
 
+# noinspection PyUnresolvedReferences  # Inspection doesn't recognize await is necessary?
 @tasks.loop(hours=1)
 async def update_status():
     now = datetime.now()
     if (now.weekday() == 3 and now.hour >= 21) or (now.weekday() == 4 and now.hour <= 2):
         # It's Thursday Niiiiight
         print("Setting status to streaming twitch.tv/criticalrole")
-        await bot.change_presence(activity=discord.Streaming(name="Critical Role",
-                                                             url="https://www.twitch.tv/criticalrole"))
+        return bot.change_presence(presence=ClientPresence(
+            status=StatusType.ONLINE,
+            activities=[PresenceActivity(
+                name="Critical Role",
+                type=PresenceActivityType.STREAMING,
+                url="https://www.twitch.tv/criticalrole"
+            )]
+        ))
     else:
         print("Setting status to playing Dungeons & Dragons")
-        await bot.change_presence(activity=discord.Game("Dungeons and Dragons"))
+        return bot.change_presence(presence=ClientPresence(
+            status=StatusType.ONLINE,
+            activities=[PresenceActivity(
+                    name="Dungeons and Dragons",
+                    type=PresenceActivityType.GAME
+                )]
+        ))
 
 
-@slash.slash(
+@bot.command(
     name="hello",
     description="Say hello",
     # Global command; allows this to be used in bot DMs.
+    dm_permission=True,
     options=[
-        create_option(
+        Option(
             name="member",
             description="Select a user",
             required=False,
-            option_type=SlashCommandOptionType.USER,
+            type=OptionType.USER,
         ),
     ],
 )
-async def hello(ctx: SlashContext, member: Member = None):
+async def hello(ctx: CommandContext, member: Member = None):
     user = ctx.author
     if member is not None:
         user = member._user
@@ -74,140 +93,126 @@ async def hello(ctx: SlashContext, member: Member = None):
     await ctx.send("Smiley day to you, " + user.mention + "!")
 
 
-@slash.slash(
+@bot.command(
     name="multipoll",
     description="Create a poll with multiple options.",
-    guild_ids=GUILD_IDS,
+    scope=GUILD_IDS,
     options=[
-        create_option(
+        Option(
             name="question",
             description="The poll question.",
             required=True,
-            option_type=SlashCommandOptionType.STRING,
+            type=OptionType.STRING,
         ),
-        create_option(
+        Option(
             name="options",
             description="The poll options, separated by spaces. Wrap with quotes to include a space in an option.",
             required=True,
-            option_type=SlashCommandOptionType.STRING,
+            type=OptionType.STRING,
         ),
-        create_option(
+        Option(
             name="mention_role",
             description="A role to mention.",
             required=False,
-            option_type=SlashCommandOptionType.ROLE,
+            type=OptionType.ROLE,
         ),
     ],
 )
-async def multipoll(ctx: SlashContext, question: str, options: str, mention_role: Role = None):
+async def multipoll(ctx: CommandContext, question: str, options: str, mention_role: Role = None):
     await polls.multipoll(ctx, question, options, mention_role)
 
 
-@slash.slash(
+@bot.command(
     name="schedule",
     description="Create a scheduling poll.",
-    guild_ids=GUILD_IDS,
+    scope=GUILD_IDS,
     options=[
-        create_option(
+        Option(
             name="question",
             description="The poll question.",
             required=True,
-            option_type=SlashCommandOptionType.STRING,
+            type=OptionType.STRING,
         ),
-        create_option(
+        Option(
             name="start_date",
             description="The start date of the scheduling range. Defaults to tomorrow.",
             required=False,
-            option_type=SlashCommandOptionType.STRING,
+            type=OptionType.STRING,
         ),
-        create_option(
+        Option(
             name="end_date",
             description="The end date of the scheduling range. Defaults to one week after the start date.",
             required=False,
-            option_type=SlashCommandOptionType.STRING,
+            type=OptionType.STRING,
         ),
-        create_option(
+        Option(
             name="mention_role",
             description="A role to mention.",
             required=False,
-            option_type=SlashCommandOptionType.ROLE,
+            type=OptionType.ROLE,
         ),
     ],
 )
-async def schedule(ctx: SlashContext, question: str, start_date: str = None, end_date: str = None,
+async def schedule(ctx: CommandContext, question: str, start_date: str = None, end_date: str = None,
                    mention_role: Role = None):
     await polls.scheduling_multipoll(ctx, question, start_date, end_date, mention_role)
 
 
-@slash.slash(
+@bot.command(
     name="multipoll_results",
     description="Ranks the results of the last multipoll.",
-    guild_ids=GUILD_IDS,
+    scope=GUILD_IDS,
     options=[
-        create_option(
+        Option(
             name="ranking_mode",
             description="The mode to use for ranking results",
-            option_type=SlashCommandOptionType.STRING,
+            type=OptionType.STRING,
             required=False,
-            choices=list(map(lambda ranking_mode_name: create_choice(name=ranking_mode_name, value=ranking_mode_name),
+            choices=list(map(lambda ranking_mode_name: Choice(name=ranking_mode_name, value=ranking_mode_name),
                              polls.ResultRankingMode.__members__.keys())),
-        ),
-        create_option(
-            name="result_limit",
-            description="The maximum number of results to include in the ranking",
-            option_type=SlashCommandOptionType.INTEGER,
-            required=False,
         ),
     ],
 )
-async def multipoll_results(ctx: SlashContext, ranking_mode: str = polls.ResultRankingMode.SCORE.name,
-                            result_limit: int = 3):
-    await polls.multipoll_results(ctx, ranking_mode, result_limit)
+async def multipoll_results(ctx: CommandContext, ranking_mode: str = polls.ResultRankingMode.SCORE.name):
+    await polls.multipoll_results(ctx, ranking_mode)
 
 
-@slash.slash(
+@bot.command(
     name="spell_lookup",
     description="Look up a DnD 5e spell",
     # Global command; allows this to be used in bot DMs.
     options=[
-        create_option(
+        Option(
             name="spell_name",
             description="The spell name",
             required=True,
-            option_type=SlashCommandOptionType.STRING,
+            type=OptionType.STRING,
         ),
     ],
 )
-async def spell_lookup(ctx: SlashContext, spell_name: str):
+async def spell_lookup(ctx: CommandContext, spell_name: str):
     card: discord.Embed = get_dnd_spell_card(spell_name)
 
-    await ctx.send(embed=card, delete_after=600)
+    await ctx.send(embeds=card)
 
 
-@slash.slash(
+@bot.command(
     name="item_lookup",
     description="Look up a DnD 5e magic item",
     # Global command; allows this to be used in bot DMs.
     options=[
-        create_option(
+        Option(
             name="item_name",
             description="The item name",
             required=True,
-            option_type=SlashCommandOptionType.STRING,
+            type=OptionType.STRING,
         ),
     ],
 )
-async def item_lookup(ctx: SlashContext, item_name: str):
+async def item_lookup(ctx: CommandContext, item_name: str):
     card: discord.Embed = get_dnd_item_card(item_name)
 
-    await ctx.send(embed=card, delete_after=600)
+    await ctx.send(embeds=card)
 
-
-# Loads the .env file that resides on the same level as the script.
-load_dotenv()
-
-# Grab the API token from the .env file. This file is NOT included in the git repository, as it contains credentials.
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-
-# Executes the bot with the specified token.
-bot.run(DISCORD_TOKEN)
+# Run the bot.
+bot.start()
