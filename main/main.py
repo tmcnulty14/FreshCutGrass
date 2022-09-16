@@ -13,7 +13,7 @@ import polls
 from wikidot_scraper import get_dnd_spell_card, get_dnd_item_card
 
 GUILD_IDS = [
-    834548590399586365, # Bot Testing
+    # 834548590399586365, # Bot Testing
     933438152826306640, # D&D: Wildemount
     771115921443651615, # Edmung Us
 ]
