@@ -2,11 +2,10 @@ import os
 from datetime import datetime
 
 import discord
-from discord import Member, Message, Role
 from discord.ext import tasks
 from dotenv import load_dotenv
 from interactions import ClientPresence, OptionType, CommandContext, Option, Choice, Client, StatusType, \
-    PresenceActivity, PresenceActivityType
+    PresenceActivity, PresenceActivityType, Message, Member, Role
 
 import polls
 from wikidot_scraper import get_dnd_spell_card, get_dnd_item_card
@@ -34,41 +33,43 @@ async def on_ready():
     for guild in bot.guilds:
         print(f"- {guild.name} (id: {guild.id})")
 
-    # await update_status()
+    # await update_status()  # TODO: Figure out why this is broken
 
 
 @bot.event
-async def on_message(message: Message):
+async def on_message_create(message: Message):
     # Lemon react to mentions of Myron Lermontov.
     lemon_triggers = ["lermontov", "lairmontov"]
     if any(trigger in message.content.lower() for trigger in lemon_triggers):
-        await message.add_reaction("🍋")  # Lemon emoji
+        await message.create_reaction("🍋")  # Lemon emoji
 
 
-# noinspection PyUnresolvedReferences  # Inspection doesn't recognize await is necessary?
-@tasks.loop(hours=1)
+# noinspection PyUnresolvedReferences
+# @tasks.loop(hours=1)  # TODO: Figure out why this is broken
 async def update_status():
     now = datetime.now()
+    presence: ClientPresence
     if (now.weekday() == 3 and now.hour >= 21) or (now.weekday() == 4 and now.hour <= 2):
         # It's Thursday Niiiiight
         print("Setting status to streaming twitch.tv/criticalrole")
-        return bot.change_presence(presence=ClientPresence(
+        presence = ClientPresence(
             status=StatusType.ONLINE,
             activities=[PresenceActivity(
                 name="Critical Role",
                 type=PresenceActivityType.STREAMING,
                 url="https://www.twitch.tv/criticalrole"
             )]
-        ))
+        )
     else:
         print("Setting status to playing Dungeons & Dragons")
-        return bot.change_presence(presence=ClientPresence(
+        presence = ClientPresence(
             status=StatusType.ONLINE,
             activities=[PresenceActivity(
                     name="Dungeons and Dragons",
                     type=PresenceActivityType.GAME
                 )]
-        ))
+        )
+    await bot.change_presence(presence=presence)
 
 
 @bot.command(
@@ -88,7 +89,7 @@ async def update_status():
 async def hello(ctx: CommandContext, member: Member = None):
     user = ctx.author
     if member is not None:
-        user = member._user
+        user = member.user
 
     await ctx.send("Smiley day to you, " + user.mention + "!")
 

@@ -4,8 +4,7 @@ from enum import Enum
 from typing import Optional
 
 from dateutil.parser import parser
-from discord import Role
-from interactions import CommandContext
+from interactions import CommandContext, Role
 from interactions.api.models.message import Message
 from interactions.api.models.user import User
 
