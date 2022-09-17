@@ -29,18 +29,3 @@ def smart_split(string: str, length_limit: int) -> Iterator[str]:
             yield substring
 
     yield remaining_string
-
-
-async def send_multiple_replies(ctx: CommandContext, messages: Iterable[str]) -> [Message]:
-    iterator: Iterator[str] = iter(messages)
-
-    # Send first message as a direct reply to the slash command.
-    sent_messages = [await ctx.send(next(iterator))]
-    thread = await ctx.channel.create_thread(name="Test Thread",
-                                             message_id=int(sent_messages[0].id), auto_archive_duration=4320)
-
-    # Send all further messages to the thread.
-    for message in iterator:
-        sent_messages.append(await thread.send(message))
-
-    return sent_messages

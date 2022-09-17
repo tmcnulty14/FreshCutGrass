@@ -5,8 +5,8 @@ from os import linesep
 from typing import Optional
 from urllib.error import HTTPError
 
-import discord
-from discord import Embed
+from interactions.api.models.message import Embed
+from interactions.api.models.misc import Color
 
 import utils
 
@@ -217,7 +217,7 @@ class DndSpell(DndWikidotCard):
         card = Embed(
             title=self.name,
             description=self.classification,
-            color=discord.Color.gold(),
+            color=Color.yellow()
         )
 
         # Casting details
@@ -284,7 +284,7 @@ class DndItem(DndWikidotCard):
     def make_card(self) -> Embed:
         card = Embed(
             title=self.name,
-            color=discord.Color.gold(),
+            color=Color.yellow(),
         )
 
         card.add_field(name="Item Type", value=self.item_type, inline=True)

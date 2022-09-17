@@ -46,11 +46,16 @@ async def post_multipoll(ctx: CommandContext, question: str, poll_options: [str]
     if mention_role is not None:
         poll_question += " " + mention_role.mention
 
-    # Send question message, options messages, and help text message
-    sent_messages = await utils.send_multiple_replies(ctx, [poll_question] + poll_options + [MULTIPOLL_HELP_TEXT])
+    # Send question message as a direct reply to the slash command, then turn it into a thread.
+    sent_messages = [await ctx.send(poll_question)]
+    thread = await ctx.channel.create_thread(name="Test Thread",
+                                             message_id=int(sent_messages[0].id), auto_archive_duration=4320)
 
-    # Add emoji reactions
-    option_messages = sent_messages[1:-1]
+    # Send all further messages in the thread.
+    option_messages = [await thread.send(option_message) for option_message in poll_options]
+    await thread.send(MULTIPOLL_HELP_TEXT)
+
+    # Add emoji reactions to the poll options.
     for emoji in MULTIPOLL_EMOJIS:
         for message in option_messages:
             await message.create_reaction(emoji)

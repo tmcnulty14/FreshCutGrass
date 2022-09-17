@@ -1,11 +1,11 @@
 import os
 from datetime import datetime
 
-import discord
 from discord.ext import tasks
 from dotenv import load_dotenv
 from interactions import ClientPresence, OptionType, CommandContext, Option, Choice, Client, StatusType, \
     PresenceActivity, PresenceActivityType, Message, Member, Role
+from interactions.api.models.message import Embed
 
 import polls
 from wikidot_scraper import get_dnd_spell_card, get_dnd_item_card
@@ -192,7 +192,7 @@ async def multipoll_results(ctx: CommandContext, ranking_mode: str = polls.Resul
     ],
 )
 async def spell_lookup(ctx: CommandContext, spell_name: str):
-    card: discord.Embed = get_dnd_spell_card(spell_name)
+    card: Embed = get_dnd_spell_card(spell_name)
 
     await ctx.send(embeds=card)
 
@@ -211,7 +211,7 @@ async def spell_lookup(ctx: CommandContext, spell_name: str):
     ],
 )
 async def item_lookup(ctx: CommandContext, item_name: str):
-    card: discord.Embed = get_dnd_item_card(item_name)
+    card: Embed = get_dnd_item_card(item_name)
 
     await ctx.send(embeds=card)
 
