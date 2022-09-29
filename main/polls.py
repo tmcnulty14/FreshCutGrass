@@ -15,7 +15,7 @@ MAYBE = "🤨"
 UNLIKELY = "🥶"
 NO = "🚫"
 MULTIPOLL_EMOJIS = [YES, MAYBE, UNLIKELY, NO]
-MULTIPOLL_QUESTION_PREFIX = "New poll: "
+MULTIPOLL_QUESTION_PREFIX = "Poll: "
 MULTIPOLL_HELP_TEXT = \
     f"Click one reaction on each poll option. {YES} = Yes, {MAYBE} = Maybe, {UNLIKELY} = Likely Not, {NO} = No"
 
@@ -48,7 +48,7 @@ async def post_multipoll(ctx: CommandContext, question: str, poll_options: [str]
 
     # Send question message as a direct reply to the slash command, then turn it into a thread.
     sent_messages = [await ctx.send(poll_question)]
-    thread = await ctx.channel.create_thread(name="Test Thread",
+    thread = await ctx.channel.create_thread(name=poll_question,
                                              message_id=int(sent_messages[0].id), auto_archive_duration=4320)
 
     # Send all further messages in the thread.
