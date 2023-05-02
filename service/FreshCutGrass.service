@@ -1,0 +1,11 @@
+[Unit]
+Description=The Fresh Cut Grass python discord bot.
+After=multi-user.target
+
+[Service]
+Type=idle
+ExecStart=/usr/local/bin/python3.9 /home/ec2-user/fresh-cut-grass/main/main.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -26,6 +26,8 @@ files:
     destination: /home/ec2-user/fresh-cut-grass/main
   - source: scripts
     destination: /home/ec2-user/fresh-cut-grass/scripts
+  - source: service
+    destination: /lib/systemd/system
 # For deployments to Amazon Linux, Ubuntu Server, or RHEL instances,
 #   you can specify a "permissions"
 #   section here that describes special permissions to apply to the files
@@ -79,7 +81,7 @@ hooks:
   #   in the script specified in "location" starting from the root of the
   #   revision's file bundle.
   ApplicationStop:
-    - location: scripts/stop_service.sh
+    - location: scripts/disable_service.sh
       timeout: 300
       runas: root
   # During the BeforeInstall deployment lifecycle event, run the commands
@@ -94,10 +96,13 @@ hooks:
     - location: scripts/install_dependencies.sh
       timeout: 300
       runas: root
+    - location: scripts/update_service.sh
+      timeout: 300
+      runas: root
   # During the ApplicationStart deployment lifecycle event, run the commands
   #   in the script specified in "location".
   ApplicationStart:
-    - location: scripts/run_service.sh
+    - location: scripts/enable_service.sh
       timeout: 300
       runas: root
   # During the ValidateService deployment lifecycle event, run the commands
