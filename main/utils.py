@@ -1,8 +1,5 @@
 from os import linesep
-from typing import Iterator, Iterable
-
-from discord import Message
-from interactions import CommandContext
+from typing import Iterator
 
 
 def smart_split(string: str, length_limit: int) -> Iterator[str]:

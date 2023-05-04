@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Installing Python3 manually to get 3.9 instead of 3.7
+# Installing Python3 manually to get 3.11 instead of 3.7
 # yum install -y python3, python3-pip
 
-if /usr/local/bin/python3.9 --version ; then
-  echo "Python 3.9 is already installed, skipping installation"
+if /usr/local/bin/python3.11 --version ; then
+  echo "Python 3.11 is already installed, skipping installation"
 else
-  echo "Installing Python 3.9"
+  echo "Installing Python 3.11"
 
   # Install build dependencies
   yum -y groupinstall "Development Tools"
@@ -14,18 +14,18 @@ else
 
   # Download Python
   cd /opt || exit
-  wget https://www.python.org/ftp/python/3.9.6/Python-3.9.6.tgz
-  tar xzf Python-3.9.6.tgz
+  wget https://www.python.org/ftp/python/3.11.3/Python-3.11.3.tgz
+  tar xzf Python-3.11.3.tgz
 
   # Build Python
-  cd Python-3.9.6 || exit
+  cd Python-3.11.3 || exit
   ./configure --enable-optimizations
   make altinstall
 
-  rm -f /opt/Python-3.9.6.tgz
+  rm -f /opt/Python-3.11.3.tgz
 fi
 
 # Install python package dependencies
 echo "Installing dependencies for Fresh Cut Grass"
-/usr/local/bin/python3.9 -m pip install --upgrade pip
-/usr/local/bin/pip3.9 install -U discord discord.py discord-py-interactions discord-py-slash-command python-dateutil python-dotenv regex typing-extensions
+/usr/local/bin/python3.11 -m pip install --upgrade pip
+/usr/local/bin/pip3.11 install -U -r /home/ec2-user/fresh-cut-grass/main/requirements.txt

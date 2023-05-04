@@ -4,11 +4,8 @@ from enum import Enum
 from typing import Optional
 
 from dateutil.parser import parser
-from interactions import CommandContext, Role
-from interactions.api.models.message import Message
-from interactions.api.models.user import User
-
-import utils
+from interactions import AutoArchiveDuration, Extension, Message, OptionType, Role, SlashCommandChoice, SlashContext, \
+    User, slash_command, slash_option
 
 YES = "🍏"
 MAYBE = "🤨"
@@ -25,13 +22,96 @@ THIRD = "🥉"
 MEDALS = [FIRST, SECOND, THIRD]
 
 
-async def multipoll(ctx: CommandContext, question: str, options: str, mention_role: Role = None):
+class ResultRankingMode(Enum):
+    SCORE = {YES: 3, MAYBE: 1, UNLIKELY: -1, NO: -3}
+    MOST_GOOD = {YES: 100, MAYBE: 10, UNLIKELY: 1, NO: -0.1}
+    LEAST_BAD = {YES: 0.1, MAYBE: -1, UNLIKELY: -10, NO: -100}
+
+
+class PollsExtension(Extension):
+    @slash_command(
+        name="multipoll",
+        description="Create a poll with multiple options.",
+    )
+    @slash_option(
+        name="question",
+        description="The poll question.",
+        required=True,
+        opt_type=OptionType.STRING,
+    )
+    @slash_option(
+        name="options",
+        description="The poll options, separated by spaces. Wrap with quotes to include a space in an option.",
+        required=True,
+        opt_type=OptionType.STRING,
+    )
+    @slash_option(
+        name="mention_role",
+        description="A role to mention.",
+        required=False,
+        opt_type=OptionType.ROLE,
+    )
+    async def multipoll(self, ctx: SlashContext, question: str, options: str, mention_role: Role = None):
+        await multipoll(ctx, question, options, mention_role)
+
+    @slash_command(
+        name="schedule",
+        description="Create a scheduling poll.",
+    )
+    @slash_option(
+        name="question",
+        description="The poll question.",
+        required=True,
+        opt_type=OptionType.STRING,
+    )
+    @slash_option(
+        name="start_date",
+        description="The start date of the scheduling range. Defaults to tomorrow.",
+        required=False,
+        opt_type=OptionType.STRING,
+    )
+    @slash_option(
+        name="end_date",
+        description="The end date of the scheduling range. Defaults to one week after the start date.",
+        required=False,
+        opt_type=OptionType.STRING,
+    )
+    @slash_option(
+        name="mention_role",
+        description="A role to mention.",
+        required=False,
+        opt_type=OptionType.ROLE,
+    )
+    async def schedule(self, ctx: SlashContext, question: str, start_date: str = None, end_date: str = None,
+                       mention_role: Role = None):
+        await scheduling_multipoll(ctx, question, start_date, end_date, mention_role)
+
+    @slash_command(
+        name="multipoll_results",
+        description="Ranks the results of the last multipoll.",
+    )
+    @slash_option(
+        name="ranking_mode",
+        description="The mode to use for ranking results",
+        opt_type=OptionType.STRING,
+        required=False,
+        choices=list(map(lambda ranking_mode_name: SlashCommandChoice(name=ranking_mode_name, value=ranking_mode_name),
+                         ResultRankingMode.__members__.keys())),
+    )
+    async def multipoll_results(self, ctx: SlashContext, ranking_mode: str = ResultRankingMode.SCORE.name):
+        await multipoll_results(ctx, ranking_mode)
+
+
+def setup(bot):
+    PollsExtension(bot)
+
+async def multipoll(ctx: SlashContext, question: str, options: str, mention_role: Role = None):
     poll_options = shlex.split(options)
 
     await post_multipoll(ctx, question, poll_options, mention_role)
 
 
-async def scheduling_multipoll(ctx: CommandContext, question: str, start_date_str: str = None, end_date_str: str = None,
+async def scheduling_multipoll(ctx: SlashContext, question: str, start_date_str: str = None, end_date_str: str = None,
                                mention_role: Role = None):
     dates = get_scheduling_dates(end_date_str, start_date_str)
 
@@ -41,7 +121,7 @@ async def scheduling_multipoll(ctx: CommandContext, question: str, start_date_st
     await post_multipoll(ctx, question, poll_options, mention_role)
 
 
-async def post_multipoll(ctx: CommandContext, question: str, poll_options: [str], mention_role: Role = None):
+async def post_multipoll(ctx: SlashContext, question: str, poll_options: [str], mention_role: Role = None):
     poll_question = MULTIPOLL_QUESTION_PREFIX + question
     if mention_role is not None:
         poll_question += " " + mention_role.mention
@@ -49,7 +129,8 @@ async def post_multipoll(ctx: CommandContext, question: str, poll_options: [str]
     # Send question message as a direct reply to the slash command, then turn it into a thread.
     sent_messages = [await ctx.send(poll_question)]
     thread = await ctx.channel.create_thread(name=poll_question,
-                                             message_id=int(sent_messages[0].id), auto_archive_duration=4320)
+                                             message=int(sent_messages[0]),
+                                             auto_archive_duration=AutoArchiveDuration.THREE_DAY)
 
     # Send all further messages in the thread.
     option_messages = [await thread.send(option_message) for option_message in poll_options]
@@ -58,7 +139,7 @@ async def post_multipoll(ctx: CommandContext, question: str, poll_options: [str]
     # Add emoji reactions to the poll options.
     for emoji in MULTIPOLL_EMOJIS:
         for message in option_messages:
-            await message.create_reaction(emoji)
+            await message.add_reaction(emoji)
 
 
 def get_scheduling_dates(end_date_str: str = None, start_date_str: str = None) -> [date]:
@@ -94,7 +175,7 @@ def get_next_monday() -> date:
     return today + timedelta(days=days_until_monday)
 
 
-async def multipoll_results(ctx: CommandContext, ranking_mode: str):
+async def multipoll_results(ctx: SlashContext, ranking_mode: str):
     ranking_mode_enum = ResultRankingMode[ranking_mode]
 
     last_multipoll = await find_multipoll(ctx, ranking_mode_enum)
@@ -108,7 +189,7 @@ async def multipoll_results(ctx: CommandContext, ranking_mode: str):
         message = poll_option.message
         for reaction in message.reactions:
             if reaction.me and reaction.emoji.name in MEDALS:
-                await message.remove_own_reaction_of(reaction.emoji)
+                await message.remove_reaction(reaction.emoji)
 
     # Add updated medal reactions
     poll_options_by_score = last_multipoll.poll_options_by_score()
@@ -124,12 +205,6 @@ async def multipoll_results(ctx: CommandContext, ranking_mode: str):
         rank += len(tied_poll_options)
         if rank > len(MEDALS):
             break
-
-
-class ResultRankingMode(Enum):
-    SCORE = {YES: 3, MAYBE: 1, UNLIKELY: -1, NO: -3}
-    MOST_GOOD = {YES: 100, MAYBE: 10, UNLIKELY: 1, NO: -0.1}
-    LEAST_BAD = {YES: 0.1, MAYBE: -1, UNLIKELY: -10, NO: -100}
 
 
 class MultipollResult:
@@ -189,14 +264,13 @@ class Multipoll:
         return poll_options_by_score
 
 
-async def find_multipoll(ctx: CommandContext, ranking_mode: ResultRankingMode = ResultRankingMode.SCORE)\
+async def find_multipoll(ctx: SlashContext, ranking_mode: ResultRankingMode = ResultRankingMode.SCORE) \
         -> Optional[Multipoll]:
     poll_options = []
     found_multipoll = False
     question = None
     bot_user = User(**(await ctx.client.get_self()))
-    channel = await ctx.get_channel()
-    for message in await channel.get_history(limit=200):
+    for message in await ctx.channel.history(limit=200).flatten():
         if message.author != bot_user:
             continue
 

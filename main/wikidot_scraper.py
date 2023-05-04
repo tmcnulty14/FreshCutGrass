@@ -5,13 +5,52 @@ from os import linesep
 from typing import Optional
 from urllib.error import HTTPError
 
-from interactions.api.models.message import Embed
-from interactions.api.models.misc import Color
+from interactions import BrandColors, Embed, Extension, OptionType, SlashContext, slash_command, slash_option
 
 import utils
 
 WIKIDOT_URL_PREFIX = "http://dnd5e.wikidot.com/"
 DIVS_TO_PARSE = ['page-title page-header', 'page-content']
+
+
+class WikidotExtension(Extension):
+    @slash_command(
+        name="spell_lookup",
+        description="Look up a DnD 5e spell",
+        # Global command; allows this to be used in bot DMs.
+        dm_permission=True,
+    )
+    @slash_option(
+        name="spell_name",
+        description="The spell name",
+        required=True,
+        opt_type=OptionType.STRING,
+    )
+    async def spell_lookup(self, ctx: SlashContext, spell_name: str):
+        card: Embed = get_dnd_spell_card(spell_name)
+
+        await ctx.send(embeds=card)
+
+    @slash_command(
+        name="item_lookup",
+        description="Look up a DnD 5e magic item",
+        # Global command; allows this to be used in bot DMs.
+        dm_permission=True,
+    )
+    @slash_option(
+        name="item_name",
+        description="The item name",
+        required=True,
+        opt_type=OptionType.STRING,
+    )
+    async def item_lookup(self, ctx: SlashContext, item_name: str):
+        card: Embed = get_dnd_item_card(item_name)
+
+        await ctx.send(embeds=card)
+
+
+def setup(bot):
+    WikidotExtension(bot)
 
 
 def get_dnd_spell_text(spell_name: str) -> str:
@@ -56,7 +95,12 @@ def get_wikidot_html(page_path: str) -> bytes:
 
 
 def parse_wikidot_html(html_content: bytes) -> str:
-    return WikidotHtmlParser().feed(html_content.decode('utf-8'))
+    print("Parsing Wikidot HTML content")
+    parser = WikidotHtmlParser()
+    parser.feed(html_content.decode('utf-8'))
+    parser.close()
+
+    return parser.output
 
 
 class WikidotHtmlParser(HTMLParser):
@@ -78,8 +122,6 @@ class WikidotHtmlParser(HTMLParser):
         self.div_level = 0
 
         super(WikidotHtmlParser, self).feed(data)
-
-        return self.output
 
     def handle_data(self, data: str):
         # Only parse data within the main-content div.
@@ -152,7 +194,7 @@ class DndWikidotCard:
         self.lines = lines
 
     def find_line(self, line_prefix: str) -> Optional[str]:
-        return next(l for l in self.lines if l.startswith(line_prefix))
+        return next(line for line in self.lines if line.startswith(line_prefix))
 
     def get_lines_between(self, previous_line_exclusive: str, next_line_exclusive):
         previous_line_index = self.lines.index(previous_line_exclusive)
@@ -163,7 +205,7 @@ class DndWikidotCard:
     def get_lines_after(self, previous_line_exclusive: str):
         previous_line_index = self.lines.index(previous_line_exclusive)
 
-        return self.lines[previous_line_index+1:]
+        return self.lines[previous_line_index + 1:]
 
     @staticmethod
     def group_lines_by_max_character_count(lines: [str]) -> [str]:
@@ -217,7 +259,7 @@ class DndSpell(DndWikidotCard):
         card = Embed(
             title=self.name,
             description=self.classification,
-            color=Color.yellow()
+            color=BrandColors.YELLOW,
         )
 
         # Casting details
@@ -284,7 +326,7 @@ class DndItem(DndWikidotCard):
     def make_card(self) -> Embed:
         card = Embed(
             title=self.name,
-            color=Color.yellow(),
+            color=BrandColors.YELLOW,
         )
 
         card.add_field(name="Item Type", value=self.item_type, inline=True)

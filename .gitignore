@@ -1,2 +1,7 @@
 main/.env
 *.pyc
+*.iml
+.idea
+venv
+.idea/misc.xml
+.idea/vcs.xml
