@@ -96,6 +96,9 @@ hooks:
     - location: scripts/install_dependencies.sh
       timeout: 3600 # Python 3.11 has a long installation time and runs a lot of tests
       runas: root
+    - location: scripts/install_certificates.command
+      timeout: 300
+      runas: root
     - location: scripts/update_service.sh
       timeout: 300
       runas: root
