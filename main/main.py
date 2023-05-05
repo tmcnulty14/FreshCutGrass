@@ -1,9 +1,9 @@
 import os
 from datetime import datetime
-
 from dotenv import load_dotenv
 from interactions import Activity, ActivityType, Client, Intents, IntervalTrigger, Member, OptionType, \
     SlashContext, Status, Task, listen, slash_command, slash_option
+from pytz import timezone
 
 # GUILD_IDS = [
 #     834548590399586365,  # Bot Testing
@@ -43,10 +43,10 @@ async def on_startup():
 
 @Task.create(IntervalTrigger(minutes=10))
 async def update_status():
-    now = datetime.now()
+    now = datetime.now(timezone('US/Pacific'))
     status: Status
     activity: Activity
-    if (now.weekday() == 3 and now.hour >= 21) or (now.weekday() == 4 and now.hour <= 2):
+    if now.weekday() == 3 and now.hour >= 18:
         # It's Thursday Niiiiight
         print("Setting status to streaming twitch.tv/criticalrole")
         status = Status.ONLINE
