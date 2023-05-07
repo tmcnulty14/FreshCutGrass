@@ -22,7 +22,7 @@ EVENT_GUILD_CHANNEL_PREFIXES = {
             "event_image": "https://images.ctfassets.net/swt2dsco9mfe/48Nfrlty0IQe0NdGu3IvIq"
                            "/30fa851afad405a68fa247b13ea55b87/1920x1342-skt.jpg?q=70",
             "mention_role": "805283535186296892",  # DROOP TROOP
-            "event_footer": "Storm King's Thunder"
+            "event_footer": "Storm King's Thunder session reminder"
         }
     },
     # Bot Testing server
@@ -33,7 +33,7 @@ EVENT_GUILD_CHANNEL_PREFIXES = {
             "event_image": "https://images.ctfassets.net/swt2dsco9mfe/48Nfrlty0IQe0NdGu3IvIq"
                            "/30fa851afad405a68fa247b13ea55b87/1920x1342-skt.jpg?q=70",
             "mention_role": "1007318944568324136",  # testers
-            "event_footer": "Storm King's Thunder"
+            "event_footer": "Storm King's Thunder session reminder"
         }
     },
 }
@@ -158,8 +158,8 @@ def make_reminder_card(calendar_event, channel_data):
     # Show the attendee responses
     response_user_lists = get_response_user_lists(calendar_event['attendees'])
     card.add_field(name=':white_check_mark: Accepted', value=response_user_lists['accepted'], inline=True)
-    card.add_field(name=':grey_question: Unconfirmed', value=response_user_lists['needsAction'], inline=True)
     card.add_field(name=':x: Declined', value=response_user_lists['declined'], inline=True)
+    card.add_field(name=':grey_question: Unconfirmed', value=response_user_lists['needsAction'], inline=True)
 
     if 'event_footer' in channel_data:
         card.set_footer(text=channel_data['event_footer'])
@@ -192,4 +192,5 @@ def get_response_user_lists(attendees):
     for response_list in response_lists.values():
         response_list.sort()
 
-    return {response_status: '\n'.join(names) + ' ' for (response_status, names) in response_lists.items()}
+    return {response_status: ('> ' + '\n> '.join(names) + ' ') if names else '-'
+            for (response_status, names) in response_lists.items()}
