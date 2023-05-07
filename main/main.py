@@ -5,6 +5,8 @@ from interactions import Activity, ActivityType, Client, Intents, IntervalTrigge
     SlashContext, Status, Task, listen, slash_command, slash_option
 from pytz import timezone
 
+from dnd_calendar import CalendarExtension
+
 # GUILD_IDS = [
 #     834548590399586365,  # Bot Testing
 #     933438152826306640,  # D&D: Wildemount
@@ -29,6 +31,8 @@ async def on_startup():
         print(f"- {guild.name} (id: {guild.id})")
 
     update_status.start()
+    CalendarExtension.remind_dnd_events.start()
+
     await update_status()
 
 
@@ -81,6 +85,7 @@ async def hello(ctx: SlashContext, member: Member = None):
     await ctx.send("Smiley day to you, " + user.mention + "!")
 
 
+bot.load_extension("dnd_calendar")
 bot.load_extension("polls")
 bot.load_extension("wikidot_scraper")
 

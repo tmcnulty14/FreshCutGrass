@@ -1,7 +1,7 @@
 main/.env
+/main/google-credentials.json
+/main/token.json
 *.pyc
 *.iml
-.idea
+.idea*
 venv
-.idea/misc.xml
-.idea/vcs.xml
