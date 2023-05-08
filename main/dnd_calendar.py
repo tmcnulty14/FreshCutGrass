@@ -54,18 +54,20 @@ EMAIL_NAMES = {
 class CalendarExtension(Extension):
     @Task.create(TimeTrigger(hour=12, utc=True))
     async def remind_dnd_events(self):
+        # Get calendar events
         events = get_todays_events()
 
         for guild_id in EVENT_GUILD_CHANNEL_PREFIXES:
-            channels = EVENT_GUILD_CHANNEL_PREFIXES[guild_id]
-            for channel_id in channels:
-                channel_data = channels[channel_id]
+            event_channels = EVENT_GUILD_CHANNEL_PREFIXES[guild_id]
+            for channel_id in event_channels:
+                channel_data = event_channels[channel_id]
 
                 event = find_event_with_prefix(events, channel_data['title_prefix'])
 
                 if event:
                     channel = self.bot.get_channel(channel_id)
 
+                    # Mention a role if specified.
                     message = ' '
                     if 'mention_role' in channel_data:
                         guild = self.bot.get_guild(guild_id)
@@ -75,16 +77,36 @@ class CalendarExtension(Extension):
                     await channel.send(content=message,
                                        embed=make_reminder_card(event, channel_data))
 
-                    # guild = self.bot.get_guild(guild_id)
-                    # print("Channels for guild " + guild_id)
-                    # print(guild.channels)
-
 
 def setup(bot):
     CalendarExtension(bot)
 
 
 def get_todays_events():
+    try:
+        gcal_client = google_calendar_client()
+
+        # Look for events in the next 24 hours
+        now = datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
+        tomorrow = (datetime.utcnow() + timedelta(days=1)).isoformat() + 'Z'
+
+        # Call the Calendar API
+        print('Fetching Google Calendar events for the next 24 hours')
+        events_result = gcal_client.events().list(calendarId='primary', timeMin=now, timeMax=tomorrow,
+                                                  maxResults=20, singleEvents=True,
+                                                  orderBy='startTime').execute()
+
+        # Debug Logging for calendar events
+        # for event in events_result.get('items', []):
+        #     start = event['start'].get('dateTime', event['start'].get('date'))
+        #     print(event['summary'], start)
+
+        return events_result.get('items', [])
+    except HttpError as error:
+        print('An error occurred getting calendar events: %s' % error)
+
+
+def google_calendar_client():
     creds = None
 
     # The file token.json stores the user's access and refresh tokens, and is
@@ -104,25 +126,9 @@ def get_todays_events():
             token.write(creds.to_json())
 
     try:
-        service = build('calendar', 'v3', credentials=creds)
-
-        # Call the Calendar API
-        now = datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
-        tomorrow = (datetime.utcnow() + timedelta(days=1)).isoformat() + 'Z'
-
-        print('Fetching Google Calendar events for the next 24 hours')
-        events_result = service.events().list(calendarId='primary', timeMin=now, timeMax=tomorrow,
-                                              maxResults=20, singleEvents=True,
-                                              orderBy='startTime').execute()
-
-        # Debug Logging for calendar events
-        # for event in events_result.get('items', []):
-        #     start = event['start'].get('dateTime', event['start'].get('date'))
-        #     print(event['summary'], start)
-
-        return events_result.get('items', [])
+        return build('calendar', 'v3', credentials=creds)
     except HttpError as error:
-        print('An error occurred getting calendar events: %s' % error)
+        print('An error occurred getting google calendar client: %s' % error)
 
 
 def find_event_with_prefix(events, title_prefix):
@@ -150,9 +156,9 @@ def make_reminder_card(calendar_event, channel_data):
     # Show the event time
     card.add_field(name="Time",
                    value=iso_to_discord_timestamp(calendar_event['start']).format(TimestampStyles.LongDateTime) + ' - '
-                        + iso_to_discord_timestamp(calendar_event['end']).format(TimestampStyles.ShortTime)
-                        + '\n🕓 '
-                        + iso_to_discord_timestamp(calendar_event['start']).format(TimestampStyles.RelativeTime)
+                         + iso_to_discord_timestamp(calendar_event['end']).format(TimestampStyles.ShortTime)
+                         + '\n🕓 '
+                         + iso_to_discord_timestamp(calendar_event['start']).format(TimestampStyles.RelativeTime)
                    )
 
     # Show the attendee responses

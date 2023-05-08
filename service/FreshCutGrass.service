@@ -4,6 +4,7 @@ After=multi-user.target
 
 [Service]
 Type=idle
+WorkingDirectory=/home/ec2-user/fresh-cut-grass/
 ExecStart=/usr/local/bin/python3.11 /home/ec2-user/fresh-cut-grass/main/main.py
 Restart=on-failure
 

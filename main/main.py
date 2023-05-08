@@ -30,9 +30,11 @@ async def on_startup():
     for guild in bot.guilds:
         print(f"- {guild.name} (id: {guild.id})")
 
+    # Start task schedules.
     update_status.start()
     CalendarExtension.remind_dnd_events.start()
 
+    # Immediately update the bot's status.
     await update_status()
 
 
@@ -47,22 +49,20 @@ async def on_startup():
 
 @Task.create(IntervalTrigger(minutes=10))
 async def update_status():
-    now = datetime.now(timezone('US/Pacific'))
-    status: Status
     activity: Activity
+    # Check if Critical Role is live
+    now = datetime.now(timezone('US/Pacific'))
     if now.weekday() == 3 and now.hour >= 18:
         # It's Thursday Niiiiight
         print("Setting status to streaming twitch.tv/criticalrole")
-        status = Status.ONLINE
         activity = Activity.create(name="Critical Role",
                                    type=ActivityType.STREAMING,
                                    url="https://www.twitch.tv/criticalrole")
     else:
         print("Setting status to playing Dungeons & Dragons")
-        status = Status.ONLINE
         activity = Activity.create(name="Dungeons and Dragons",
                                    type=ActivityType.GAME)
-    await bot.change_presence(status=status, activity=activity)
+    await bot.change_presence(status=Status.ONLINE, activity=activity)
 
 
 @slash_command(
@@ -85,6 +85,7 @@ async def hello(ctx: SlashContext, member: Member = None):
     await ctx.send("Smiley day to you, " + user.mention + "!")
 
 
+# Load extension files (uses import syntax)
 bot.load_extension("dnd_calendar")
 bot.load_extension("polls")
 bot.load_extension("wikidot_scraper")

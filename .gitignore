@@ -1,6 +1,6 @@
-main/.env
-/main/google-credentials.json
-/main/token.json
+*.env
+*google-credentials.json
+*token.json
 *.pyc
 *.iml
 .idea*
