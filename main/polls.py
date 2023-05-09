@@ -5,7 +5,7 @@ from typing import Optional
 
 from dateutil.parser import parser
 from interactions import AutoArchiveDuration, Extension, Message, OptionType, Role, SlashCommandChoice, SlashContext, \
-    User, slash_command, slash_option
+    slash_command, slash_option
 
 YES = "🍏"
 MAYBE = "🤨"
@@ -269,9 +269,8 @@ async def find_multipoll(ctx: SlashContext, ranking_mode: ResultRankingMode = Re
     poll_options = []
     found_multipoll = False
     question = None
-    bot_user = User(**(await ctx.client.get_self()))
     for message in await ctx.channel.history(limit=200).flatten():
-        if message.author != bot_user:
+        if message.author != ctx.client.user:
             continue
 
         if not found_multipoll:

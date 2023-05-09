@@ -1,5 +1,7 @@
 from os import linesep
-from typing import Iterator
+from typing import Iterator, Optional, Callable, Union
+
+from interactions import TYPE_ALL_CHANNEL, Message, Client, Member, User
 
 
 def smart_split(string: str, length_limit: int) -> Iterator[str]:
@@ -26,3 +28,20 @@ def smart_split(string: str, length_limit: int) -> Iterator[str]:
             yield substring
 
     yield remaining_string
+
+
+async def find_matching_bot_message(channel: "TYPE_ALL_CHANNEL", bot: Client, message_limit: Optional[int] = None,
+                                    match_condition: Callable[[Message], bool] = lambda message: True)\
+        -> Optional[Message]:
+    return await find_matching_message(channel, message_limit,
+                                       lambda message: message.author == bot.user and match_condition(message))
+
+
+async def find_matching_message(channel: "TYPE_ALL_CHANNEL", message_limit: int = 10,
+                                match_condition: Callable[[Message], bool] = lambda message: True) -> Optional[Message]:
+    history = channel.history(limit=message_limit)
+
+    async for message in history:
+        if match_condition(message):
+            return message
+    return None
