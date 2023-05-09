@@ -110,8 +110,8 @@ class CalendarExtension(Extension):
         embed = make_reminder_card(event, channel_config)
         components = make_reminder_components()
 
-        existing_reminder: Optional[Message] = await self.find_last_event_reminder(channel)
-        if existing_reminder is not None and existing_reminder.embeds[0].title == embed.title:
+        existing_reminder: Optional[Message] = await self.find_last_event_reminder(channel, embed.title)
+        if existing_reminder is not None:
             # Edit the existing reminder message for this event if it has changed.
             if embed != existing_reminder.embeds[0]\
                     or content != existing_reminder.content\
@@ -125,9 +125,10 @@ class CalendarExtension(Extension):
                                embed=embed,
                                components=components)
 
-    async def find_last_event_reminder(self, channel: "TYPE_ALL_CHANNEL") -> Optional[Message]:
+    async def find_last_event_reminder(self, channel: "TYPE_ALL_CHANNEL", title: str) -> Optional[Message]:
         return await find_matching_bot_message(channel, self.bot,
-                                               match_condition=lambda msg: message_is_event_reminder(msg))
+                                               match_condition=lambda msg: message_is_event_reminder(msg)
+                                                                           and msg.embeds[0].title == title)
 
 
 def setup(bot):

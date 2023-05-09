@@ -37,7 +37,7 @@ async def find_matching_bot_message(channel: "TYPE_ALL_CHANNEL", bot: Client, me
                                        lambda message: message.author == bot.user and match_condition(message))
 
 
-async def find_matching_message(channel: "TYPE_ALL_CHANNEL", message_limit: int = 10,
+async def find_matching_message(channel: "TYPE_ALL_CHANNEL", message_limit: int = 200,
                                 match_condition: Callable[[Message], bool] = lambda message: True) -> Optional[Message]:
     history = channel.history(limit=message_limit)
 
