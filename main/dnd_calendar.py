@@ -3,6 +3,7 @@ import string
 from datetime import datetime, timedelta
 from typing import Optional
 
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -101,6 +102,7 @@ class CalendarExtension(Extension):
         channel_config: dict = EVENT_GUILD_CHANNEL_CONFIG[guild_id][channel_id]
 
         channel = self.bot.get_channel(channel_id)
+        print('Sending event reminder in channel "{}"'.format(channel.name))
         # Mention a role if specified.
         content = ' '
         if 'mention_role' in channel_config:
@@ -116,16 +118,19 @@ class CalendarExtension(Extension):
             if embed != existing_reminder.embeds[0]\
                     or content != existing_reminder.content\
                     or components != existing_reminder.components:
+                print('Editing existing event reminder in channel "{}" with title "{}"'.format(channel.name, embed.title))
                 await existing_reminder.edit(content=content,
                                              embed=embed,
                                              components=components)
         else:
             # Send a new reminder message for this event.
+            print('Sending new event reminder in channel "{}" with title "{}"'.format(channel.name, embed.title))
             await channel.send(content=content,
                                embed=embed,
                                components=components)
 
     async def find_last_event_reminder(self, channel: "TYPE_ALL_CHANNEL", title: str) -> Optional[Message]:
+        print('Finding last event reminder in channel "{}" with title "{}"'.format(channel.name, title))
         return await find_matching_bot_message(channel, self.bot,
                                                match_condition=lambda msg: message_is_event_reminder(msg)
                                                                            and msg.embeds[0].title == title)
@@ -169,13 +174,20 @@ class GoogleCalendar:
         # time.
         if os.path.exists('token.json'):
             creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+
+        # Refresh the creds if they exist and are expired but refreshable.
+        if creds and creds.expired and creds.refresh_token:
+            try:
+                creds.refresh(Request())
+            except RefreshError as error:
+                print('Failed to refresh credentials', error)
+                creds = None
+
         # If there are no (valid) credentials available, let the user log in.
         if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file('google-credentials.json', SCOPES)
-                creds = flow.run_local_server(port=0)
+            flow = InstalledAppFlow.from_client_secrets_file('google-credentials.json', SCOPES)
+            creds = flow.run_local_server(port=0)
+
             # Save the credentials for the next run
             with open('token.json', 'w') as token:
                 token.write(creds.to_json())
