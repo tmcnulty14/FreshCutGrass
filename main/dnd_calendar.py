@@ -200,9 +200,10 @@ class GoogleCalendar:
 
 def find_event_with_prefix(events: [dict], title_prefix: str):
     for event in events:
-        title: string = event['summary']
-        if title.startswith(title_prefix):
-            return event
+        if 'summary' in event:
+            title: string = event['summary']
+            if title.startswith(title_prefix):
+                return event
 
     return None
 
@@ -211,9 +212,9 @@ def make_reminder_card(calendar_event: dict, channel_data: dict) -> Embed:
     print(calendar_event)
 
     card = Embed(
-        title=calendar_event['summary'],
+        title=calendar_event['summary'] if 'summary' in calendar_event else 'D&D Event',
         color=BrandColors.YELLOW,
-        description=calendar_event['description'],
+        description=calendar_event['description'] if 'description' in calendar_event else '',
     )
 
     # Add an image if appropriate
@@ -234,8 +235,7 @@ def make_reminder_card(calendar_event: dict, channel_data: dict) -> Embed:
     card.add_field(name=':x: Declined', value=response_user_lists['declined'], inline=True)
     card.add_field(name=':grey_question: Unconfirmed', value=response_user_lists['needsAction'], inline=True)
 
-    if 'event_footer' in channel_data:
-        card.set_footer(text=channel_data['event_footer'] + ' (DnD Event reminder)')
+    card.set_footer(text=(channel_data['event_footer'] if 'event_footer' in channel_data else '') + ' (DnD Event reminder)')
 
     return card
 
